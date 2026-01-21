@@ -3,33 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pronósticos Animalitos Venezuela - Lottoactivo y La Granjita</title>
+    <title>Pronósticos Animalitos Venezuela</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body {
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-        }
-    </style>
 </head>
 <body>
     <div id="root"></div>
-    <script src="app.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Crear componentes de iconos
+        const Icon = ({ name, size = 24, className = '' }) => {
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, []);
+            return React.createElement('i', { 
+                'data-lucide': name, 
+                className,
+                style: { width: size, height: size }
+            });
+        };
+
+        const animalitos = [
+          { numero: '00', nombre: 'Delfín', color: 'bg-blue-500' },
+          { numero: '01', nombre: 'Carnero', color: 'bg-amber-600' },
+          { numero: '02', nombre: 'Toro', color: 'bg-red-700' },
+          { numero: '03', nombre: 'Ciempiés', color: 'bg-gray-600' },
+          { numero: '04', nombre: 'Alacrán', color: 'bg-yellow-600' },
+          { numero: '05', nombre: 'León', color: 'bg-orange-500' },
+          { numero: '06', nombre: 'Rana', color: 'bg-green-600' },
+          { numero: '07', nombre: 'Perico', color: 'bg-green-500' },
+          { numero: '08', nombre: 'Ratón', color: 'bg-gray-500' },
+          { numero: '09', nombre: 'Águila', color: 'bg-yellow-700' },
+          { numero: '10', nombre: 'Tigre', color: 'bg-orange-600' },
+          { numero: '11', nombre: 'Gato', color: 'bg-gray-700' },
+          { numero: '12', nombre: 'Caballo', color: 'bg-amber-700' },
+          { numero: '13', nombre: 'Mono', color: 'bg-amber-500' },
+          { numero: '14', nombre: 'Paloma', color: 'bg-gray-400' },
+          { numero: '15', nombre: 'Zorro', color: 'bg-orange-700' },
+          { numero: '16', nombre: 'Oso', color: 'bg-amber-800' },
+          { numero: '17', nombre: 'Pavo', color: 'bg-red-600' },
+          { numero: '18', nombre: 'Burro', color: 'bg-gray-600' },
+          { numero: '19', nombre: 'Chivo', color: 'bg-amber-600' },
+          { numero: '20', nombre: 'Cochino', color: 'bg-pink-400' },
+          { numero: '21', nombre: 'Gallo', color: 'bg-red-500' },
+          { numero: '22', nombre: 'Camello', color: 'bg-yellow-600' },
+          { numero: '23', nombre: 'Cebra', color: 'bg-gray-800' },
+          { numero: '24', nombre: 'Iguana', color: 'bg-green-700' },
+          { numero: '25', nombre: 'Gallina', color: 'bg-red-400' },
+          { numero: '26', nombre: 'Vaca', color: 'bg-amber-500' },
+          { numero: '27', nombre: 'Perro', color: 'bg-amber-700' },
+          { numero: '28', nombre: 'Zamuro', color: 'bg-gray-900' },
+          { numero: '29', nombre: 'Elefante', color: 'bg-gray-600' },
+          { numero: '30', nombre: 'Caimán', color: 'bg-green-800' },
+          { numero: '31', nombre: 'Lapa', color: 'bg-blue-600' },
+          { numero: '32', nombre: 'Ardilla', color: 'bg-orange-400' },
+          { numero: '33', nombre: 'Pescado', color: 'bg-blue-400' },
+          { numero: '34', nombre: 'Venado', color: 'bg-amber-600' },
+          { numero: '35', nombre: 'Jirafa', color: 'bg-yellow-500' },
+          { numero: '36', nombre: 'Culebra', color: 'bg-green-600' }
+        ];
+
+        const horariosLottoactivo = [
+          '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
+          '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM', '07:00 PM'
+        ];
+
+        const horariosGranjita = [
+          '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
+          '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM', '06:00 PM', '07:00 PM'
+        ];
+
+        // Storage usando localStorage
+        if (!window.storage) {
+          window.storage = {
+            async get(key) {
+              const value = localStorage.getItem(key);
+              return value ? { key, value } : null;
+            },
+            async set(key, value) {
+              localStorage.setItem(key, value);
+              return { key, value };
+            },
+            async delete(key) {
+              localStorage.removeItem(key);
+              return { key, deleted: true };
+            }
+          };
+        }
+
+        function PronosticosAnimalitos() {
+          const [cantidadJugar, setCantidadJugar] = useState(5);
+          const [pronosticos, setPronosticos] = useState([]);
+          const [sorteo, setSorteo] = useState('lottoactivo');
+          const [vistaActual, setVistaActual] = useState('pronosticos');
+          const [resultados, setResultados] = useState([]);
+          const [nuevoResultado, setNuevoResultado] = useState({
+            fecha: new Date().toISOString().split('T')[0],
+            sorteo: 'lottoactivo',
+            horario: '08:00 AM',
+            numero: '00'
+          });
+
+          useEffect(() => {
+            cargarResultados();
+          }, []);
+
+          const cargarResultados = async () => {
+            try {
+              const data = await window.storage.get('resultados-animalitos');
+              if (data) {
+                setResultados(JSON.parse(data.value));
+              }
+            } catch (error) {
+              console.log('No hay resultados guardados');
+            }
+          };
+
+          const guardarResultados = async (nuevosResultados) => {
+            try {
+              await window.storage.set('resultados-animalitos', JSON.stringify(nuevosResultados));
+              setResultados(nuevosResultados);
+            } catch (error) {
+              console.error('Error al guardar:', error);
+            }
+          };
+
+          const agregarResultado = () => {
+            const resultado = {
+              ...nuevoResultado,
+              id: Date.now(),
+              timestamp: new Date().toISOString()
+            };
+            const nuevosResultados = [...resultados, resultado];
+            guardarResultados(nuevosResultados);
+            
+            setNuevoResultado({
+              ...nuevoResultado,
+              numero: '00'
+            });
+          };
+
+          const eliminarResultado = (id) => {
+            const nuevosResultados = resultados.filter(r => r.id !== id);
+            guardarResultados(nuevosResultados);
+          };
+
+          const generarPronosticos = () => {
+            const shuffled = [...animalitos].sort(() => Math.random() - 0.5);
+            setPronosticos(shuffled.slice(0, cantidadJugar));
+          };
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-green-600 to-blue-700 p-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-2xl shadow-2xl p-6 mb-6">
+                  <div className="text-center mb-6">
+                    <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                      🎯 Pronósticos Animalitos
+                    </h1>
+                    <p className="text-gray-600">Registra resultados y analiza estadísticas</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 mb-6">
+                    <button
+                      onClick={() => setVistaActual('pronosticos')}
+                      className={`py-3 px-2 rounded-lg font-semibold transition-all ${
+                        vistaActual === 'pronosticos'
+                          ? 'bg-green-600 text-white shadow-lg'
+                          : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      🎲 Pronósticos
+                    </button>
+                    <button
+                      onClick={() => setVistaActual('agregar')}
+                      className={`py-3 px-2 rounded-lg font-semibold transition-all ${
+                        vistaActual === 'agregar'
+                          ? 'bg-purple-600 text-white shadow-lg'
+                          : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      ➕ Agregar
+                    </button>
+                    <button
+                      onClick={() => setVistaActual('resultados')}
+                      className={`py-3 px-2 rounded-lg font-semibold transition-all ${
+                        vistaActual === 'resultados'
+                          ? 'bg-blue-600 text-white shadow-lg'
+                          : 'bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      📊 Resultados
+                    </button>
+                  </div>
+
+                  {vistaActual === 'pronosticos' && (
+                    <div>
+                      <div className="space-y-4 mb-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Selecciona el sorteo:
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              onClick={() => setSorteo('lottoactivo')}
+                              className={`p-3 rounded-lg font-semibold transition-all ${
+                                sorteo === 'lottoactivo'
+                                  ? 'bg-green-600 text-white shadow-lg'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              Lottoactivo
+                            </button>
+                            <button
+                              onClick={() => setSorteo('granjita')}
+                              className={`p-3 rounded-lg font-semibold transition-all ${
+                                sorteo === 'granjita'
+                                  ? 'bg-blue-600 text-white shadow-lg'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              La Granjita
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            ¿Cuántos animalitos quieres jugar? ({cantidadJugar})
+                          </label>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={cantidadJugar}
+                            onChange={(e) => setCantidadJugar(parseInt(e.target.value))}
+                            className="w-full h-2 bg-gray-300 rounded-lg cursor-pointer"
+                          />
+                        </div>
+
+                        <button
+                          onClick={generarPronosticos}
+                          className="w-full bg-gradient-to-r from-green-500 to-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-blue-700 transition-all shadow-lg"
+                        >
+                          🎲 Generar Pronósticos
+                        </button>
+                      </div>
+
+                      {pronosticos.length > 0 && (
+                        <div className="mt-8">
+                          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
+                            Tus Pronósticos para {sorteo === 'lottoactivo' ? 'Lottoactivo' : 'La Granjita'}
+                          </h2>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {pronosticos.map((animal, index) => (
+                              <div
+                                key={index}
+                                className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-md border-2 border-gray-200"
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className={`${animal.color} w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg`}>
+                                    {animal.numero}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-500 font-medium">Animalito #{index + 1}</p>
+                                    <p className="text-xl font-bold text-gray-800">{animal.nombre}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {vistaActual === 'agregar' && (
+                    <div className="space-y-4">
+                      <h2 className="text-xl font-bold text-gray-800 mb-4">
+                        ➕ Agregar Resultado Manual
+                      </h2>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Fecha</label>
+                        <input
+                          type="date"
+                          value={nuevoResultado.fecha}
+                          onChange={(e) => setNuevoResultado({...nuevoResultado, fecha: e.target.value})}
+                          className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Sorteo</label>
+                        <select
+                          value={nuevoResultado.sorteo}
+                          onChange={(e) => setNuevoResultado({...nuevoResultado, sorteo: e.target.value})}
+                          className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 outline-none"
+                        >
+                          <option value="lottoactivo">Lottoactivo</option>
+                          <option value="granjita">La Granjita</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Horario</label>
+                        <select
+                          value={nuevoResultado.horario}
+                          onChange={(e) => setNuevoResultado({...nuevoResultado, horario: e.target.value})}
+                          className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 outline-none"
+                        >
+                          {(nuevoResultado.sorteo === 'lottoactivo' ? horariosLottoactivo : horariosGranjita).map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Animalito</label>
+                        <select
+                          value={nuevoResultado.numero}
+                          onChange={(e) => setNuevoResultado({...nuevoResultado, numero: e.target.value})}
+                          className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 outline-none"
+                        >
+                          {animalitos.map(animal => (
+                            <option key={animal.numero} value={animal.numero}>
+                              {animal.numero} - {animal.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button
+                        onClick={agregarResultado}
+                        className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-4 rounded-xl font-bold text-lg hover:from-purple-600 hover:to-pink-700 transition-all shadow-lg"
+                      >
+                        💾 Guardar Resultado
+                      </button>
+
+                      <div className="mt-6">
+                        <h3 className="text-lg font-bold text-gray-800 mb-3">Últimos Resultados</h3>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {resultados.slice(-5).reverse().map(r => {
+                            const animal = animalitos.find(a => a.numero === r.numero);
+                            return (
+                              <div key={r.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between border border-gray-200">
+                                <div className="flex items-center gap-3">
+                                  <div className={`${animal?.color} w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm`}>
+                                    {r.numero}
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-gray-800">{animal?.nombre}</p>
+                                    <p className="text-xs text-gray-600">{r.fecha} - {r.horario}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => eliminarResultado(r.id)}
+                                  className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {vistaActual === 'resultados' && (
+                    <div className="text-center py-12">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                        📊 Resultados Guardados
+                      </h2>
+                      <p className="text-gray-600 mb-4">
+                        Total de sorteos registrados: <strong>{resultados.length}</strong>
+                      </p>
+                      {resultados.length === 0 && (
+                        <p className="text-gray-500">
+                          No hay resultados aún. ¡Comienza agregando sorteos!
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white/90 backdrop-blur rounded-xl p-4 text-sm text-gray-700">
+                  <p className="text-center">
+                    <strong>Nota:</strong> Los datos se guardan en tu navegador. Juega responsablemente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        ReactDOM.render(<PronosticosAnimalitos />, document.getElementById('root'));
+    </script>
 </body>
 </html>
-```
-
-### **Paso 4: Guardar cambios**
-
-1. En cada archivo editado, baja hasta abajo
-2. Escribe en "Commit changes": `Código completo de la aplicación`
-3. Haz clic en **"Commit changes"**
-
-### **Paso 5: Probar**
-
-Espera 1-2 minutos y abre tu página:
-```
-https://TU_USUARIO.github.io/animalitos-venezuela/
