@@ -180,4 +180,342 @@
                 );
 
                 // Agrupar historial por fecha
-                const historialPorDia
+                const historialPorDia = historialRelevante.reduce((acc, curr) => {
+                    if (!acc[curr.fecha]) acc[curr.fecha] = { manana: [], tarde: [] };
+                    if (HORARIOS_MANANA.includes(curr.horario)) acc[curr.fecha].manana.push(curr.numero);
+                    if (HORARIOS_TARDE.includes(curr.horario)) acc[curr.fecha].tarde.push(curr.numero);
+                    return acc;
+                }, {});
+
+                // 3. Encontrar Coincidencias (Días donde salió AL MENOS UNO de los animales de hoy en la mañana)
+                let tardesCoincidentes = [];
+                let diasEncontrados = 0;
+
+                Object.keys(historialPorDia).forEach(fecha => {
+                    const dia = historialPorDia[fecha];
+                    // Intersección entre lo que salió hoy en la mañana y lo que salió esa mañana
+                    const coincidencias = dia.manana.filter(num => resultadosHoyManana.includes(num));
+                    
+                    if (coincidencias.length > 0) {
+                        // Si hubo coincidencia en la mañana, guardamos lo que salió en la TARDE de ese día
+                        tardesCoincidentes = [...tardesCoincidentes, ...dia.tarde];
+                        diasEncontrados++;
+                    }
+                });
+
+                if (tardesCoincidentes.length === 0) {
+                    setAnalysis({ error: "No se encontraron patrones similares en los últimos días." });
+                    return;
+                }
+
+                // 4. Calcular frecuencias de la tarde
+                const conteo = {};
+                tardesCoincidentes.forEach(num => {
+                    conteo[num] = (conteo[num] || 0) + 1;
+                });
+
+                // Ordenar por frecuencia
+                const ranking = Object.keys(conteo)
+                    .map(num => ({
+                        id: num,
+                        count: conteo[num],
+                        prob: ((conteo[num] / tardesCoincidentes.length) * 100).toFixed(1)
+                    }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 5); // Top 5
+
+                setAnalysis({
+                    baseManana: resultadosHoyManana,
+                    diasAnalizados: diasEncontrados,
+                    ranking: ranking,
+                    totalMuestras: tardesCoincidentes.length
+                });
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">🔮</span> Proyección de Tarde</h2>
+                    <p className="text-xs text-gray-500 bg-purple-50 p-2 rounded border border-purple-100">
+                        Analiza qué salió en las tardes anteriores cuando la mañana fue similar a la de hoy.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => setSorteo('Lottoactivo')} className={`p-2 rounded-lg text-sm font-bold border ${sorteo === 'Lottoactivo' ? 'bg-purple-600 text-white' : 'bg-white'}`}>Lottoactivo</button>
+                        <button onClick={() => setSorteo('La Granjita')} className={`p-2 rounded-lg text-sm font-bold border ${sorteo === 'La Granjita' ? 'bg-purple-600 text-white' : 'bg-white'}`}>La Granjita</button>
+                    </div>
+
+                    <div className="flex items-center space-x-2 bg-white p-3 rounded-lg shadow-sm">
+                        <span className="text-xs font-bold text-gray-500">Analizar últimos:</span>
+                        <select value={diasAtras} onChange={(e) => setDiasAtras(parseInt(e.target.value))} className="bg-gray-100 rounded px-2 py-1 text-sm font-bold">
+                            <option value="5">5 días</option>
+                            <option value="10">10 días</option>
+                            <option value="15">15 días</option>
+                        </select>
+                    </div>
+
+                    <button onClick={analizar} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg">
+                        ANALIZAR PATRÓN
+                    </button>
+
+                    {analysis && analysis.error && (
+                        <div className="p-4 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200 font-medium">
+                            {analysis.error}
+                        </div>
+                    )}
+
+                    {analysis && !analysis.error && (
+                        <div className="space-y-4 anim-pop">
+                            <div className="bg-white p-4 rounded-xl shadow border border-gray-100">
+                                <h3 className="text-sm font-bold text-gray-500 uppercase mb-3">Resultados de hoy (Mañana)</h3>
+                                <div className="flex flex-wrap gap-2 justify-center">
+                                    {analysis.baseManana.map(num => <AnimalBadge key={num} number={num} size="sm" />)}
+                                </div>
+                                <div className="mt-2 text-center text-xs text-gray-400">
+                                    Basado en coincidencia con {analysis.diasAnalizados} días anteriores.
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-b from-white to-purple-50 p-4 rounded-xl shadow-lg border border-purple-100">
+                                <h3 className="text-center font-bold text-purple-800 mb-4 text-lg">🔥 Más probables para la Tarde</h3>
+                                <div className="space-y-3">
+                                    {analysis.ranking.map((item, idx) => (
+                                        <div key={item.id} className="flex items-center justify-between bg-white p-2 rounded-lg shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`font-bold w-6 text-center ${idx===0?'text-yellow-500 text-xl':'text-gray-400'}`}>{idx+1}</span>
+                                                <AnimalBadge number={item.id} size="md" showName={true} />
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xl font-bold text-slate-700">{item.prob}%</div>
+                                                <div className="text-xs text-gray-400">{item.count} apariciones</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 3. AGREGAR RESULTADOS
+        const AddResult = ({ onAdd, db }) => {
+            const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+            const [sorteo, setSorteo] = useState(SORTEOS[0]);
+            const [horario, setHorario] = useState(HORARIOS[0]);
+            const [numero, setNumero] = useState('0');
+            const [msg, setMsg] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                const existe = db.find(r => r.fecha === fecha && r.sorteo === sorteo && r.horario === horario);
+                if(existe) {
+                    setMsg('⚠️ Ya existe un resultado para este horario.');
+                    setTimeout(() => setMsg(''), 3000);
+                    return;
+                }
+                onAdd({ id: Date.now(), fecha, sorteo, horario, numero, timestamp: new Date().getTime() });
+                setMsg('✅ Guardado');
+                setTimeout(() => setMsg(''), 2000);
+            };
+
+            const ultimos = db.slice(0, 3);
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">➕</span> Cargar Resultado</h2>
+                    <form onSubmit={handleSubmit} className="bg-white p-5 rounded-xl shadow-md space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha</label>
+                            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full p-2 border rounded-lg bg-gray-50 outline-none" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Sorteo</label>
+                                <select value={sorteo} onChange={e => setSorteo(e.target.value)} className="w-full p-2 border rounded-lg bg-gray-50 outline-none">
+                                    {SORTEOS.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Horario</label>
+                                <select value={horario} onChange={e => setHorario(e.target.value)} className="w-full p-2 border rounded-lg bg-gray-50 outline-none">
+                                    {HORARIOS.map(h => <option key={h} value={h}>{h}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Animalito</label>
+                            <select value={numero} onChange={e => setNumero(e.target.value)} className="w-full p-2 border rounded-lg bg-gray-50 outline-none font-mono text-lg">
+                                {ANIMALITOS.map(a => <option key={a.id} value={a.id}>{a.id} - {a.name}</option>)}
+                            </select>
+                        </div>
+                        <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-md">GUARDAR</button>
+                        {msg && <div className="text-center text-sm font-bold text-green-600 bg-green-50 p-2 rounded">{msg}</div>}
+                    </form>
+                    {ultimos.length > 0 && (
+                        <div className="mt-4">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Recientes</h3>
+                            <div className="space-y-1">
+                                {ultimos.map(item => (
+                                    <div key={item.id} className="bg-white/60 p-2 rounded flex justify-between text-xs">
+                                        <span>{item.horario} ({item.sorteo})</span>
+                                        <span className="font-bold">{item.numero}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 4. IA PREDICCIÓN (Algoritmo Básico)
+        const AIPrediction = ({ db }) => {
+            const [sorteo, setSorteo] = useState(SORTEOS[0]);
+            const [predictions, setPredictions] = useState([]);
+
+            useEffect(() => {
+                if (db.length === 0) return;
+                const historial = db.filter(item => item.sorteo === sorteo);
+                if(historial.length === 0) return;
+
+                const counts = {};
+                const recentCounts = {};
+                historial.forEach(item => counts[item.numero] = (counts[item.numero] || 0) + 1);
+                historial.slice(0, 20).forEach(item => recentCounts[item.numero] = (recentCounts[item.numero] || 0) + 1);
+
+                const scores = ANIMALITOS.map(a => {
+                    const fHist = (counts[a.id] || 0) / historial.length;
+                    const fRec = (recentCounts[a.id] || 0) / 20;
+                    const score = (fHist * 0.4) + (fRec * 0.4) + (Math.random() * 0.2); // Factor aleatorio pequeño
+                    return { ...a, score, prob: (score * 100).toFixed(1) };
+                });
+                setPredictions(scores.sort((a, b) => b.score - a.score).slice(0, 3));
+            }, [sorteo, db]);
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">🤖</span> IA Básica</h2>
+                    <div className="flex space-x-2 mb-4">
+                        {SORTEOS.map(s => <button key={s} onClick={() => setSorteo(s)} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${sorteo===s?'bg-indigo-600 text-white':'bg-white'}`}>{s}</button>)}
+                    </div>
+                    {db.length < 5 ? <div className="text-center text-gray-500">Faltan datos...</div> : (
+                        <div className="space-y-3">
+                            {predictions.map((p, i) => (
+                                <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xl">{i===0?'🥇':(i===1?'🥈':'🥉')}</span>
+                                        <AnimalBadge number={p.id} size="md" />
+                                        <div className="font-bold text-gray-700">{p.name}</div>
+                                    </div>
+                                    <div className="text-xs font-bold bg-gray-100 px-2 py-1 rounded">{p.prob}% Score</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // 5. HISTÓRICO
+        const History = ({ db, onDelete }) => {
+            const [filtroSorteo, setFiltroSorteo] = useState('Todos');
+            const filtered = db.filter(i => filtroSorteo === 'Todos' || i.sorteo === filtroSorteo);
+            
+            return (
+                <div className="h-full flex flex-col">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold text-gray-800">📚 Historial</h2>
+                        <select value={filtroSorteo} onChange={e => setFiltroSorteo(e.target.value)} className="bg-white border text-sm p-1 rounded">
+                            <option value="Todos">Todos</option>
+                            {SORTEOS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex-1 overflow-y-auto space-y-2 pb-20">
+                        {filtered.map(item => (
+                            <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center text-sm">
+                                <div className="flex items-center gap-3">
+                                    <AnimalBadge number={item.numero} size="sm" />
+                                    <div>
+                                        <div className="font-bold">{item.fecha}</div>
+                                        <div className="text-xs text-gray-500">{item.horario} - {item.sorteo}</div>
+                                    </div>
+                                </div>
+                                <button onClick={() => confirm('¿Borrar?') && onDelete(item.id)} className="text-red-400 px-2">✕</button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- APP SHELL ---
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('forecast');
+            const [db, setDb] = useState([]);
+
+            useEffect(() => {
+                const stored = localStorage.getItem('resultados-animalitos-v2');
+                if (stored) setDb(JSON.parse(stored).sort((a,b) => b.timestamp - a.timestamp));
+            }, []);
+
+            const addResult = (item) => {
+                const newDb = [item, ...db];
+                setDb(newDb);
+                localStorage.setItem('resultados-animalitos-v2', JSON.stringify(newDb));
+            };
+
+            const deleteResult = (id) => {
+                const newDb = db.filter(i => i.id !== id);
+                setDb(newDb);
+                localStorage.setItem('resultados-animalitos-v2', JSON.stringify(newDb));
+            };
+
+            const renderContent = () => {
+                switch(activeTab) {
+                    case 'forecast': return <RandomForecast />;
+                    case 'pattern': return <PatternAnalyzer db={db} />;
+                    case 'ai': return <AIPrediction db={db} />;
+                    case 'add': return <AddResult onAdd={addResult} db={db} />;
+                    case 'history': return <History db={db} onDelete={deleteResult} />;
+                    default: return <RandomForecast />;
+                }
+            };
+
+            const TabBtn = ({ id, icon, label }) => (
+                <button onClick={() => setActiveTab(id)} className={`flex flex-col items-center justify-center w-full py-2 ${activeTab === id ? 'text-indigo-600' : 'text-gray-400'}`}>
+                    <span className="text-xl mb-1">{icon}</span>
+                    <span className="text-[9px] font-bold uppercase">{label}</span>
+                </button>
+            );
+
+            return (
+                <div className="w-full max-w-md mx-auto h-screen flex flex-col bg-gray-100 md:rounded-3xl md:h-[90vh] md:my-[5vh] md:overflow-hidden shadow-2xl relative">
+                    <div className="bg-white p-3 shadow-sm z-10 flex justify-between items-center">
+                        <h1 className="font-black text-indigo-700 text-lg tracking-tighter">ANIMALITOS <span className="text-pink-600">PRO</span></h1>
+                        <span className="text-[10px] font-mono bg-gray-200 px-2 py-1 rounded">v2.0</span>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+                        {renderContent()}
+                    </div>
+
+                    <div className="bg-white border-t border-gray-200 pb-safe z-10">
+                        <div className="flex justify-between items-center px-1">
+                            <TabBtn id="forecast" icon="🎲" label="Azar" />
+                            <TabBtn id="pattern" icon="🔮" label="Proyección" />
+                            <TabBtn id="ai" icon="🤖" label="IA" />
+                            <TabBtn id="add" icon="➕" label="Cargar" />
+                            <TabBtn id="history" icon="📚" label="Hist." />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
