@@ -53,4 +53,320 @@
             { id: '29', name: 'Elefante', color: 'bg-gray-600' }, { id: '30', name: 'Caimán', color: 'bg-green-800' },
             { id: '31', name: 'Lapa', color: 'bg-blue-600' }, { id: '32', name: 'Ardilla', color: 'bg-orange-400' },
             { id: '33', name: 'Pescado', color: 'bg-blue-400' }, { id: '34', name: 'Venado', color: 'bg-amber-600' },
-            { id: '35', name: 'Jirafa', color: '
+            { id: '35', name: 'Jirafa', color: 'bg-yellow-500' }, { id: '36', name: 'Culebra', color: 'bg-green-600' },
+        ];
+        const HORARIOS_MANANA = ["08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM"];
+        const HORARIOS_TARDE = ["01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM", "07:00 PM"];
+        const HORARIOS = [...HORARIOS_MANANA, ...HORARIOS_TARDE];
+        const SORTEOS = ["Lottoactivo", "La Granjita"];
+
+        const AnimalBadge = ({ number, showName = false, size = "md", extraClass = "" }) => {
+            const animal = ANIMALITOS.find(a => a.id === number) || ANIMALITOS[0];
+            const sizeClasses = size === "lg" ? "w-16 h-16 text-2xl" : (size === "sm" ? "w-8 h-8 text-xs" : "w-12 h-12 text-lg");
+            return (
+                <div className={`flex flex-col items-center anim-pop ${extraClass}`}>
+                    <div className={`${animal.color} ${sizeClasses} rounded-full flex items-center justify-center text-white font-bold shadow-md border-2 border-white`}>
+                        {animal.id}
+                    </div>
+                    {showName && <span className="text-[10px] md:text-xs font-medium mt-1 text-gray-700 text-center leading-tight">{animal.name}</span>}
+                </div>
+            );
+        };
+
+        // --- PANTALLAS ---
+
+        const RandomForecast = () => {
+            const [sorteo, setSorteo] = useState(SORTEOS[0]);
+            const [cantidad, setCantidad] = useState(3);
+            const [resultados, setResultados] = useState([]);
+            const generar = () => {
+                const nuevos = [];
+                for(let i=0; i<cantidad; i++) nuevos.push(ANIMALITOS[Math.floor(Math.random() * ANIMALITOS.length)]);
+                setResultados(nuevos);
+            };
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">🎲</span> Pronóstico Aleatorio</h2>
+                    <div className="bg-gray-50 p-4 rounded-xl shadow-inner">
+                        <div className="flex space-x-2 mb-4">
+                            {SORTEOS.map(s => <button key={s} onClick={() => setSorteo(s)} className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-colors ${sorteo === s ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-gray-600 border'}`}>{s}</button>)}
+                        </div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad: {cantidad}</label>
+                        <input type="range" min="1" max="10" value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                    </div>
+                    <button onClick={generar} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg transform active:scale-95 transition-transform text-lg">GENERAR PRONÓSTICO</button>
+                    {resultados.length > 0 && (
+                        <div className="grid grid-cols-4 gap-4 mt-6 p-4 bg-white rounded-xl shadow border border-gray-100">
+                            {resultados.map((r, idx) => <AnimalBadge key={`${r.id}-${idx}`} number={r.id} showName={true} />)}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const PatternAnalyzer = ({ db }) => {
+            const [sorteo, setSorteo] = useState(SORTEOS[0]);
+            const [diasAtras, setDiasAtras] = useState(15);
+            const [analysis, setAnalysis] = useState(null);
+
+            const analizar = () => {
+                const hoy = new Date().toISOString().split('T')[0];
+                const resultadosHoyManana = db.filter(r => r.fecha === hoy && r.sorteo === sorteo && HORARIOS_MANANA.includes(r.horario)).map(r => r.numero);
+
+                if (resultadosHoyManana.length === 0) { setAnalysis({ error: "No hay resultados cargados para hoy en la mañana (8 AM - 12 PM)." }); return; }
+
+                const fechaLimite = new Date(); fechaLimite.setDate(fechaLimite.getDate() - diasAtras);
+                const historial = db.filter(r => r.fecha !== hoy && r.fecha >= fechaLimite.toISOString().split('T')[0] && r.sorteo === sorteo);
+                
+                const dias = {};
+                historial.forEach(r => {
+                    if (!dias[r.fecha]) dias[r.fecha] = { manana: [], tarde: [] };
+                    HORARIOS_MANANA.includes(r.horario) ? dias[r.fecha].manana.push(r.numero) : dias[r.fecha].tarde.push(r.numero);
+                });
+
+                let tardes = [], diasEncontrados = 0;
+                Object.values(dias).forEach(dia => {
+                    if (dia.manana.some(num => resultadosHoyManana.includes(num))) { tardes = [...tardes, ...dia.tarde]; diasEncontrados++; }
+                });
+
+                if (tardes.length === 0) { setAnalysis({ error: "No se encontraron patrones similares." }); return; }
+
+                const conteo = {}; tardes.forEach(num => conteo[num] = (conteo[num] || 0) + 1);
+                const ranking = Object.keys(conteo).map(id => ({ id, count: conteo[id], prob: ((conteo[id] / tardes.length) * 100).toFixed(1) })).sort((a, b) => b.count - a.count).slice(0, 5);
+                setAnalysis({ baseManana: resultadosHoyManana, diasAnalizados: diasEncontrados, ranking });
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">🔮</span> Proyección de Tarde</h2>
+                    <div className="grid grid-cols-2 gap-3">
+                        {SORTEOS.map(s => <button key={s} onClick={() => setSorteo(s)} className={`p-2 rounded-lg text-sm font-bold border ${sorteo === s ? 'bg-purple-600 text-white' : 'bg-white'}`}>{s}</button>)}
+                    </div>
+                    <button onClick={analizar} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-bold shadow-lg text-lg">ANALIZAR PATRÓN</button>
+                    {analysis && !analysis.error && (
+                        <div className="space-y-4 anim-pop">
+                            <div className="bg-gradient-to-b from-white to-purple-50 p-4 rounded-xl shadow-lg border border-purple-100">
+                                <h3 className="text-center font-bold text-purple-800 mb-4 text-lg">🔥 Más probables</h3>
+                                {analysis.ranking.map((item, idx) => (
+                                    <div key={item.id} className="flex items-center justify-between bg-white p-2 rounded-lg shadow-sm mb-2">
+                                        <div className="flex items-center gap-3"><span className="font-bold w-6 text-center text-yellow-500">#{idx+1}</span><AnimalBadge number={item.id} size="sm" showName={true} /></div>
+                                        <div className="text-right"><div className="text-xl font-bold text-slate-700">{item.prob}%</div></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {analysis && analysis.error && <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200 font-bold text-center">{analysis.error}</div>}
+                </div>
+            );
+        };
+
+        const AIPrediction = ({ db }) => {
+            const [sorteo, setSorteo] = useState(SORTEOS[0]);
+            const [predictions, setPredictions] = useState([]);
+
+            useEffect(() => {
+                if (db.length === 0) return;
+                const historial = db.filter(item => item.sorteo === sorteo);
+                if(historial.length === 0) return;
+
+                const counts = {}, recentCounts = {};
+                historial.forEach(item => counts[item.numero] = (counts[item.numero] || 0) + 1);
+                historial.slice(0, 20).forEach(item => recentCounts[item.numero] = (recentCounts[item.numero] || 0) + 1);
+
+                const scores = ANIMALITOS.map(a => {
+                    const fHist = (counts[a.id] || 0) / historial.length;
+                    const fRec = (recentCounts[a.id] || 0) / 20;
+                    const score = (fHist * 0.4) + (fRec * 0.4) + (Math.random() * 0.2); 
+                    return { ...a, score, prob: (score * 100).toFixed(1) };
+                });
+                setPredictions(scores.sort((a, b) => b.score - a.score).slice(0, 3));
+            }, [sorteo, db]);
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">🤖</span> IA Básica</h2>
+                    <div className="flex space-x-2 mb-4">
+                        {SORTEOS.map(s => <button key={s} onClick={() => setSorteo(s)} className={`flex-1 py-2 rounded-lg text-sm font-bold border ${sorteo===s?'bg-indigo-600 text-white':'bg-white'}`}>{s}</button>)}
+                    </div>
+                    {db.length < 5 ? <div className="text-center text-gray-500">Faltan datos...</div> : (
+                        <div className="space-y-3">
+                            {predictions.map((p, i) => (
+                                <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex items-center justify-between">
+                                    <div className="flex items-center gap-3"><span className="text-xl">{i===0?'🥇':(i===1?'🥈':'🥉')}</span><AnimalBadge number={p.id} size="md" /><div className="font-bold text-gray-700">{p.name}</div></div>
+                                    <div className="text-xs font-bold bg-gray-100 px-2 py-1 rounded">{p.prob}% Score</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const AddResult = ({ onAdd, db }) => {
+            const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+            const [sorteo, setSorteo] = useState(SORTEOS[0]);
+            const [horario, setHorario] = useState(HORARIOS[0]);
+            const [numero, setNumero] = useState('0');
+            
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if(db.find(r => r.fecha === fecha && r.sorteo === sorteo && r.horario === horario)) return alert('⚠️ Ya existe');
+                onAdd({ id: Date.now(), fecha, sorteo, horario, numero, timestamp: new Date().getTime() });
+                alert('✅ Guardado');
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">➕</span> Cargar Resultado</h2>
+                    <form onSubmit={handleSubmit} className="bg-white p-5 rounded-xl shadow-md space-y-4">
+                        <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required className="w-full p-2 border rounded-lg bg-gray-50 outline-none" />
+                        <div className="grid grid-cols-2 gap-4">
+                            <select value={sorteo} onChange={e => setSorteo(e.target.value)} className="w-full p-2 border rounded-lg bg-gray-50">{SORTEOS.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                            <select value={horario} onChange={e => setHorario(e.target.value)} className="w-full p-2 border rounded-lg bg-gray-50">{HORARIOS.map(h => <option key={h} value={h}>{h}</option>)}</select>
+                        </div>
+                        <select value={numero} onChange={e => setNumero(e.target.value)} className="w-full p-2 border rounded-lg bg-gray-50 outline-none font-mono text-lg">{ANIMALITOS.map(a => <option key={a.id} value={a.id}>{a.id} - {a.name}</option>)}</select>
+                        <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl shadow-md">GUARDAR</button>
+                    </form>
+                </div>
+            );
+        };
+
+        // --- NUEVA PANTALLA: CONFIGURACIÓN / RESPALDO ---
+        const Settings = ({ db, onRestore, onDeleteAll }) => {
+            const exportData = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "animalitos_backup_" + new Date().toISOString().split('T')[0] + ".json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const loadedDb = JSON.parse(e.target.result);
+                        if (Array.isArray(loadedDb)) {
+                            if(confirm(`Se encontraron ${loadedDb.length} registros. ¿Reemplazar los datos actuales?`)) {
+                                onRestore(loadedDb);
+                            }
+                        } else alert("Archivo inválido");
+                    } catch(err) { alert("Error leyendo el archivo"); }
+                };
+                reader.readAsText(file);
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><span className="text-2xl mr-2">⚙️</span> Datos</h2>
+                    
+                    <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                        <h3 className="font-bold text-lg text-indigo-800 mb-2">Sincronización</h3>
+                        <p className="text-sm text-gray-500 mb-4">
+                            Descarga un archivo con tus datos para pasarlos a tu PC u otro dispositivo.
+                        </p>
+
+                        <div className="space-y-3">
+                            <button onClick={exportData} className="w-full flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 py-3 rounded-xl font-bold hover:bg-indigo-100 transition">
+                                <span>⬇️</span> Descargar Respaldo
+                            </button>
+
+                            <div className="relative">
+                                <input type="file" id="file-upload" className="hidden" onChange={importData} accept=".json" />
+                                <label htmlFor="file-upload" className="w-full flex items-center justify-center gap-2 bg-white text-gray-700 border-2 border-dashed border-gray-300 py-3 rounded-xl font-bold hover:border-indigo-400 hover:text-indigo-600 transition cursor-pointer">
+                                    <span>⬆️</span> Cargar Respaldo
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                        <h3 className="font-bold text-red-800 mb-2">Zona de Peligro</h3>
+                        <button onClick={onDeleteAll} className="w-full bg-red-600 text-white py-2 rounded-lg font-bold shadow hover:bg-red-700">
+                            🗑️ Borrar TODOS los datos
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const History = ({ db, onDelete }) => (
+            <div className="h-full flex flex-col">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">📚 Historial ({db.length})</h2>
+                <div className="flex-1 overflow-y-auto space-y-2 pb-20">
+                    {db.map(item => (
+                        <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center text-sm">
+                            <div className="flex items-center gap-3"><AnimalBadge number={item.numero} size="sm" /><div><div className="font-bold">{item.fecha}</div><div className="text-xs text-gray-500">{item.horario} - {item.sorteo}</div></div></div>
+                            <button onClick={() => confirm('¿Borrar?') && onDelete(item.id)} className="text-red-400 px-2 font-bold">✕</button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        // --- APP SHELL ---
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('forecast');
+            const [db, setDb] = useState([]);
+
+            useEffect(() => {
+                const stored = localStorage.getItem('resultados-animalitos-v2');
+                if (stored) setDb(JSON.parse(stored).sort((a,b) => b.timestamp - a.timestamp));
+            }, []);
+
+            const save = (newDb) => { setDb(newDb); localStorage.setItem('resultados-animalitos-v2', JSON.stringify(newDb)); };
+            const addResult = (item) => save([item, ...db]);
+            const deleteResult = (id) => save(db.filter(i => i.id !== id));
+            const restoreData = (newDb) => { save(newDb); alert('✅ Datos restaurados con éxito.'); setActiveTab('history'); };
+            const deleteAll = () => { if(confirm('¿ESTÁS SEGURO? Se borrará todo.')) save([]); };
+
+            const renderContent = () => {
+                switch(activeTab) {
+                    case 'forecast': return <RandomForecast />;
+                    case 'pattern': return <PatternAnalyzer db={db} />;
+                    case 'ai': return <AIPrediction db={db} />;
+                    case 'add': return <AddResult onAdd={addResult} db={db} />;
+                    case 'history': return <History db={db} onDelete={deleteResult} />;
+                    case 'settings': return <Settings db={db} onRestore={restoreData} onDeleteAll={deleteAll} />;
+                    default: return <RandomForecast />;
+                }
+            };
+
+            const TabBtn = ({ id, icon, label }) => (
+                <button onClick={() => setActiveTab(id)} className={`flex flex-col items-center justify-center w-full py-2 ${activeTab === id ? 'text-indigo-600' : 'text-gray-400'}`}>
+                    <span className="text-xl mb-1">{icon}</span><span className="text-[9px] font-bold uppercase">{label}</span>
+                </button>
+            );
+
+            return (
+                <div className="w-full max-w-md mx-auto h-screen flex flex-col bg-gray-100 md:rounded-3xl md:h-[90vh] md:my-[5vh] md:overflow-hidden shadow-2xl relative">
+                    <div className="bg-white p-3 shadow-sm z-10 flex justify-between items-center">
+                        <h1 className="font-black text-indigo-700 text-lg tracking-tighter">ANIMALITOS <span className="text-pink-600">PRO</span></h1>
+                        <span className="text-[10px] font-mono bg-gray-200 px-2 py-1 rounded">v2.5</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">{renderContent()}</div>
+                    <div className="bg-white border-t border-gray-200 pb-safe z-10">
+                        <div className="flex justify-between items-center px-1">
+                            <TabBtn id="forecast" icon="🎲" label="Azar" />
+                            <TabBtn id="pattern" icon="🔮" label="Proyección" />
+                            <TabBtn id="ai" icon="🤖" label="IA" />
+                            <TabBtn id="add" icon="➕" label="Cargar" />
+                            <TabBtn id="history" icon="📚" label="Hist." />
+                            <TabBtn id="settings" icon="⚙️" label="Datos" />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
